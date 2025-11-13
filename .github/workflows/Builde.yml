@@ -28,16 +28,25 @@ jobs:
 
       - name: Install Android SDK and accept licenses
         run: |
+          # Create android directories with correct permissions
+          mkdir -p $HOME/.android
+          touch $HOME/.android/repositories.cfg
+          
           sudo mkdir -p /usr/lib/android-sdk/cmdline-tools
-          sudo mkdir -p ~/.android
-          echo 'count=0' > ~/.android/repositories.cfg
           cd /usr/lib/android-sdk/cmdline-tools
+          
+          # Download and unzip Android SDK command line tools
           sudo wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-          sudo unzip tools.zip -d latest
+          sudo unzip -o tools.zip -d latest
+          
           export ANDROID_SDK_ROOT=/usr/lib/android-sdk
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0"
+          
+          # Accept all SDK licenses
+          yes | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+          
+          # Install platform tools and build tools
+          sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0"
 
       - name: Create buildozer.spec file
         run: |
