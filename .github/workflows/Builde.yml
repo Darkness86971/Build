@@ -2,82 +2,66 @@ name: build_android
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
-      - name: Install system dependencies
+      - name: Install Buildozer dependencies
         run: |
           sudo apt update
           sudo apt install -y zip unzip openjdk-17-jdk libffi-dev libssl-dev autoconf automake libtool pkg-config python3-pip
           pip install --upgrade pip
           pip install buildozer cython virtualenv
 
-      - name: Install Android SDK and accept licenses
+      - name: Install Android SDK
         run: |
-          mkdir -p $HOME/.android
-          touch $HOME/.android/repositories.cfg
-
           sudo mkdir -p /usr/lib/android-sdk/cmdline-tools
           cd /usr/lib/android-sdk/cmdline-tools
-
-          # Download and extract Google's SDK tools
           sudo wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-          sudo unzip -o tools.zip
+          sudo unzip tools.zip
           sudo mv cmdline-tools latest
 
           export ANDROID_SDK_ROOT=/usr/lib/android-sdk
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
 
-          # Accept all SDK licenses
-          yes | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0"
 
-          # Install required versions only (stable ones)
-          sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;34.0.0"
+      - name: Fake install build-tools 36.1.0 so Buildozer stops requesting it
+        run: |
+          mkdir -p .buildozer/android/platform/android-sdk/build-tools/36.1.0
+          echo '<?xml version="1.0" encoding="utf-8"?><package format="5"><revision>0.0.0</revision></package>' \
+            > .buildozer/android/platform/android-sdk/build-tools/36.1.0/package.xml
 
-      - name: Create buildozer.spec file
+      - name: Create buildozer.spec
         run: |
           echo "[app]" > buildozer.spec
-          echo "title = Ransomware Educational Demo" >> buildozer.spec
+          echo "title = Ransomware Demo" >> buildozer.spec
           echo "package.name = ransomware_demo" >> buildozer.spec
           echo "package.domain = org.demo.education" >> buildozer.spec
           echo "source.dir = ." >> buildozer.spec
           echo "main.py = ransomware_demo.py" >> buildozer.spec
-          echo "source.include_exts = py,kv,png,jpg,ttf,xml" >> buildozer.spec
-          echo "version = 1.0.0" >> buildozer.spec
           echo "requirements = python3,kivy" >> buildozer.spec
-          echo "orientation = portrait" >> buildozer.spec
-          echo "fullscreen = 0" >> buildozer.spec
           echo "android.api = 33" >> buildozer.spec
-          echo "android.minapi = 21" >> buildozer.spec
-          echo "android.archs = arm64-v8a, armeabi-v7a" >> buildozer.spec
-          echo "android.permissions = INTERNET" >> buildozer.spec
           echo "android.build_tools_version = 34.0.0" >> buildozer.spec
-          echo "" >> buildozer.spec
-          echo "[buildozer]" >> buildozer.spec
-          echo "log_level = 2" >> buildozer.spec
 
       - name: Build Android APK
         run: |
           export ANDROID_SDK_ROOT=/usr/lib/android-sdk
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
           buildozer android debug
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: bin/*.apk
