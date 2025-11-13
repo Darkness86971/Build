@@ -52,6 +52,7 @@ jobs:
           echo "source.dir = ." >> buildozer.spec
           echo "main.py = ransomware_demo.py" >> buildozer.spec
           echo "requirements = python3,kivy" >> buildozer.spec
+          echo "version = 1.0" >> buildozer.spec
           echo "android.api = 33" >> buildozer.spec
           echo "android.build_tools_version = 34.0.0" >> buildozer.spec
 
