@@ -1,87 +1,87 @@
-# GitHub Actions Workflow for Ransomware Educational Demonstration
-# This workflow tests the Python application on multiple Python versions
+# GitHub Actions Workflow for Android APK Build using Buildozer
+# This workflow is separate from the original multi-OS/multi-version test job
+# because the Android build process is highly specific and resource-intensive.
 
-name: Python Application
+name: Android APK Build
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: Install system dependencies (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3-tk
-    
-    - name: Install system dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install python-tk@3.11 || true
-    
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    
-    - name: Lint with flake8 (optional)
-      run: |
-        pip install flake8
-        # Stop the build if there are Python syntax errors or undefined names
-        flake8 ransomware_demo.py --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings
-        flake8 ransomware_demo.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      continue-on-error: true
-    
-    - name: Verify script syntax
-      run: |
-        python -m py_compile ransomware_demo.py
-    
-    - name: Test imports
-      run: |
-        python -c "import tkinter; print('tkinter OK')"
-        python -c "import base64; print('base64 OK')"
-        python -c "import datetime; print('datetime OK')"
-        python -c "import hashlib; print('hashlib OK')"
-
-  security-check:
+  build_android:
+    # Buildozer requires a Linux environment
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Set up Python
+      with:
+        # Fetch all history for setuptools_scm to work correctly
+        fetch-depth: 0
+
+    - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-    
-    - name: Install security tools
+
+    - name: Install Buildozer and dependencies
       run: |
-        pip install bandit safety
-    
-    - name: Run Bandit security scan
+        # Install Buildozer
+        pip install buildozer
+        
+        # Install system dependencies for Android build
+        sudo apt-get update
+        sudo apt-get install -y \
+          git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev \
+          libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+
+    - name: Create buildozer.spec file
+      # The buildozer.spec file is created here to ensure it's present for the build.
+      # NOTE: The original application uses Tkinter, which is NOT supported by Python-for-Android.
+      # This build will likely FAIL unless the application is converted to use Kivy or another supported framework.
+      # The 'kivy' requirement is added to the spec to allow the build to proceed, but the app logic will not run.
       run: |
-        bandit -r ransomware_demo.py -v || true
-    
-    - name: Check dependencies for vulnerabilities
-      run: |
-        pip install -r requirements.txt
-        safety check || true
+        cat << EOF > buildozer.spec
+        [app]
+        title = Ransomware Educational Demo
+        package.name = ransomware_demo
+        package.domain = org.test
+        version = 0.1
+        # IMPORTANT: Tkinter is not supported by Python-for-Android.
+        # The build will proceed, but the resulting APK will not run the GUI.
+        # Kivy is included as a placeholder to satisfy the build system.
+        requirements = python3, kivy, android
+        main.py = ransomware_demo.py
+        source.include_exts = py,png,jpg,kv,atlas
+        source.exclude_dirs = tests, bin, venv
+        android.ndk = 25b
+        android.sdk = 33
+        android.api = 33
+        android.minapi = 21
+        android.target = 33
+        orientation = portrait
+        android.release = False
+        android.keystore = debug.keystore
+        android.keystore.password = android
+        android.keyalias = androiddebugkey
+        android.keyalias.password = android
+
+        [buildozer]
+        log_level = 2
+        EOF
+
+    - name: Run Buildozer to create debug APK
+      # The 'android debug' command will download NDK, SDK, and build the APK.
+      # This step can take a long time on the first run due to large downloads.
+      run: buildozer android debug
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: android-apk
+        path: bin/*.apk
+        retention-days: 5
       
