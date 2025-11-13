@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -18,12 +19,25 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Install Buildozer and dependencies
+      - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y zip unzip openjdk-17-jdk libffi-dev libssl-dev autoconf automake libtool pkg-config python3-pip
           pip install --upgrade pip
           pip install buildozer cython virtualenv
+
+      - name: Install Android SDK and accept licenses
+        run: |
+          sudo mkdir -p /usr/lib/android-sdk/cmdline-tools
+          sudo mkdir -p ~/.android
+          echo 'count=0' > ~/.android/repositories.cfg
+          cd /usr/lib/android-sdk/cmdline-tools
+          sudo wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+          sudo unzip tools.zip -d latest
+          export ANDROID_SDK_ROOT=/usr/lib/android-sdk
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0"
 
       - name: Create buildozer.spec file
         run: |
@@ -46,8 +60,11 @@ jobs:
           echo "[buildozer]" >> buildozer.spec
           echo "log_level = 2" >> buildozer.spec
 
-      - name: Run Buildozer to create debug APK
-        run: buildozer android debug
+      - name: Build Android APK
+        run: |
+          export ANDROID_SDK_ROOT=/usr/lib/android-sdk
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+          buildozer android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
