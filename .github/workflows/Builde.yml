@@ -30,21 +30,22 @@ jobs:
         run: |
           mkdir -p $HOME/.android
           touch $HOME/.android/repositories.cfg
-          
+
           sudo mkdir -p /usr/lib/android-sdk/cmdline-tools
           cd /usr/lib/android-sdk/cmdline-tools
-          
+
+          # Download and extract Google's SDK tools
           sudo wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
           sudo unzip -o tools.zip
-          
-          # Move extracted tools into the correct structure
           sudo mv cmdline-tools latest
-          
+
           export ANDROID_SDK_ROOT=/usr/lib/android-sdk
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-          
-          # Accept licenses and install required components
+
+          # Accept all SDK licenses
           yes | sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+
+          # Install required versions only (stable ones)
           sudo $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;34.0.0"
 
       - name: Create buildozer.spec file
@@ -64,6 +65,7 @@ jobs:
           echo "android.minapi = 21" >> buildozer.spec
           echo "android.archs = arm64-v8a, armeabi-v7a" >> buildozer.spec
           echo "android.permissions = INTERNET" >> buildozer.spec
+          echo "android.build_tools_version = 34.0.0" >> buildozer.spec
           echo "" >> buildozer.spec
           echo "[buildozer]" >> buildozer.spec
           echo "log_level = 2" >> buildozer.spec
