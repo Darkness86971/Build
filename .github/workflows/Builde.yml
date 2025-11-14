@@ -46,7 +46,7 @@ jobs:
         package.name = ransomware_demo
         package.domain = org.test
         version = 0.1
-        requirements = python3, kivy, android
+        requirements = python3, android
         main.py = ransomware_demo.py
         source.dir = .  # Explicitly set source directory (fix for "source.dir is missing")
         source.include_exts = py,png,jpg,kv,atlas
