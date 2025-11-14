@@ -19,47 +19,17 @@ jobs:
       - name: Install Buildozer dependencies
         run: |
           sudo apt update
-          sudo apt install -y zip unzip openjdk-17-jdk libffi-dev libssl-dev autoconf automake libtool pkg-config python3-pip
+          sudo apt install -y zip unzip openjdk-17-jdk python3-pip libffi-dev libssl-dev autoconf automake libtool pkg-config
           pip install --upgrade pip
           pip install buildozer cython virtualenv
 
-      - name: Install Android SDK
+      - name: Patch Buildozer to force build-tools 34.0.0
         run: |
-          sudo mkdir -p /usr/lib/android-sdk/cmdline-tools
-          cd /usr/lib/android-sdk/cmdline-tools
-          sudo wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-          sudo unzip tools.zip
-          sudo mv cmdline-tools latest
+          sed -i 's/"build-tools;36.1.0"/"build-tools;34.0.0"/g' $HOME/.local/lib/python3.11/site-packages/buildozer/targets/android.py
+          sed -i 's/36.1.0/34.0.0/g' $HOME/.local/lib/python3.11/site-packages/buildozer/targets/android.py
 
-          export ANDROID_SDK_ROOT=/usr/lib/android-sdk
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
-
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0"
-
-      - name: Fake install build-tools 36.1.0 so Buildozer stops requesting it
+      - name: Build APK
         run: |
-          mkdir -p .buildozer/android/platform/android-sdk/build-tools/36.1.0
-          echo '<?xml version="1.0" encoding="utf-8"?><package format="5"><revision>0.0.0</revision></package>' \
-            > .buildozer/android/platform/android-sdk/build-tools/36.1.0/package.xml
-
-      - name: Create buildozer.spec
-        run: |
-          echo "[app]" > buildozer.spec
-          echo "title = Ransomware Demo" >> buildozer.spec
-          echo "package.name = ransomware_demo" >> buildozer.spec
-          echo "package.domain = org.demo.education" >> buildozer.spec
-          echo "source.dir = ." >> buildozer.spec
-          echo "main.py = ransomware_demo.py" >> buildozer.spec
-          echo "requirements = python3,kivy" >> buildozer.spec
-          echo "version = 1.0" >> buildozer.spec
-          echo "android.api = 33" >> buildozer.spec
-          echo "android.build_tools_version = 34.0.0" >> buildozer.spec
-
-      - name: Build Android APK
-        run: |
-          export ANDROID_SDK_ROOT=/usr/lib/android-sdk
-          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
           buildozer android debug
 
       - uses: actions/upload-artifact@v4
