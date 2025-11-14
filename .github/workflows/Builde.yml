@@ -17,18 +17,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           sudo apt update
-          sudo apt install -y zip unzip openjdk-17-jdk python3-pip git
+          sudo apt install -y zip unzip openjdk-17-jdk git python3-pip
           pip install --upgrade pip
-          pip install cython python-for-android
+          pip install cython python-for-android kivy
 
-      - name: Install Android SDK / NDK manually (ONLY build-tools 34.0.0)
+      - name: Install Android SDK + NDK (safe versions)
         run: |
           mkdir -p $HOME/android/sdk
           cd $HOME/android/
 
+          # Download Google commandline tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmd.zip
           unzip cmd.zip -d sdk/cmdline-tools
           mv sdk/cmdline-tools/cmdline-tools sdk/cmdline-tools/latest
@@ -36,14 +37,16 @@ jobs:
           export ANDROID_SDK_ROOT=$HOME/android/sdk
           export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
 
+          # Accept all licenses
           yes | sdkmanager --licenses
 
-          sdkmanager "build-tools;34.0.0" \
-                     "platform-tools" \
+          # Install SAFE versions (do not trigger 36.x)
+          sdkmanager "platform-tools" \
                      "platforms;android-33" \
+                     "build-tools;34.0.0" \
                      "ndk;25.2.9519653"
 
-      - name: Build APK using Python-for-Android
+      - name: Build APK using Python-for-Android ONLY
         run: |
           export ANDROID_SDK_ROOT=$HOME/android/sdk
           export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.2.9519653
@@ -56,9 +59,9 @@ jobs:
             --version=1.0 \
             --bootstrap=sdl2 \
             --requirements=python3,kivy \
-            --sdk-dir=$ANDROID_SDK_ROOT \
-            --ndk-dir=$ANDROID_NDK_HOME \
             --android-api=33 \
+            --ndk-dir=$ANDROID_NDK_HOME \
+            --sdk-dir=$ANDROID_SDK_ROOT \
             --build-tools=34.0.0
 
       - uses: actions/upload-artifact@v4
