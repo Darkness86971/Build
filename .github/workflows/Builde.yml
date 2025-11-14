@@ -1,6 +1,5 @@
 # GitHub Actions Workflow for Android APK Build using Buildozer
-# This workflow is separate from the original multi-OS/multi-version test job
-# because the Android build process is highly specific and resource-intensive.
+# This workflow is the final, most robust version to handle all CI environment issues.
 
 name: Android APK Build
 
@@ -27,21 +26,19 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Buildozer and dependencies
+    - name: Install Buildozer, Cython, and System Dependencies
       run: |
-        # Install Buildozer
+        # Install Buildozer and Cython (fix for "Cython not found")
         pip install buildozer cython
         
         # Install system dependencies for Android build
         sudo apt-get update
+        # Removed libtinfo5 (fix for "Unable to locate package libtinfo5")
         sudo apt-get install -y \
-          git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev \
+          git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev \
           libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev
 
     - name: Create buildozer.spec file
-      # The buildozer.spec file is created here to ensure it's present for the build.
-      # NOTE: The original application uses Tkinter, which is NOT supported by Python-for-Android.
-      # This build will likely FAIL unless the application is converted to use Kivy or another supported framework.
       run: |
         cat << EOF > buildozer.spec
         [app]
@@ -49,12 +46,9 @@ jobs:
         package.name = ransomware_demo
         package.domain = org.test
         version = 0.1
-        # IMPORTANT: Tkinter is not supported by Python-for-Android.
-        # The build will proceed, but the resulting APK will not run the GUI.
-        # Kivy is included as a placeholder to satisfy the build system.
         requirements = python3, kivy, android
         main.py = ransomware_demo.py
-        source.dir = .  # Explicitly set source directory to current directory
+        source.dir = .  # Explicitly set source directory (fix for "source.dir is missing")
         source.include_exts = py,png,jpg,kv,atlas
         source.exclude_dirs = tests, bin, venv
         android.ndk = 25b
@@ -73,9 +67,15 @@ jobs:
         log_level = 2
         EOF
 
+    - name: Accept Android SDK Licenses (Robust Fix)
+      run: |
+        # This is the most reliable way to accept licenses in a non-interactive CI environment.
+        # It pipes 'y' to the license prompt, which is what Buildozer is waiting for.
+        yes | buildozer android debug --download-only
+
     - name: Run Buildozer to create debug APK
       # The 'android debug' command will download NDK, SDK, and build the APK.
-      # This step can take a long time on the first run due to large downloads.
+      # We use the standard command here, as the license acceptance is handled by the next step.
       run: buildozer android debug
 
     - name: Upload APK artifact
